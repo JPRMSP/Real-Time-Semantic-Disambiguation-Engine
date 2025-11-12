@@ -3,8 +3,16 @@ import nltk
 import networkx as nx
 import matplotlib.pyplot as plt
 
-# Download tokenizer
-nltk.download('punkt', quiet=True)
+# --- Safe Punkt download ---
+try:
+    nltk.data.find("tokenizers/punkt")
+except LookupError:
+    nltk.download("punkt")
+
+try:
+    nltk.data.find("taggers/averaged_perceptron_tagger")
+except LookupError:
+    nltk.download("averaged_perceptron_tagger")
 
 st.set_page_config(page_title="Semantic Disambiguation Engine", layout="wide")
 st.title("🧠 Real-Time Semantic Disambiguation Engine")
@@ -27,9 +35,9 @@ def lexical_disambiguation(sentence):
     senses = {}
     for w in words:
         if w in lexical_db:
-            if "river" in sentence or "water" in sentence:
+            if any(x in sentence for x in ["river", "water"]):
                 senses[w] = lexical_db[w][1]
-            elif "money" in sentence or "cricket" in sentence:
+            elif any(x in sentence for x in ["money", "cricket"]):
                 senses[w] = lexical_db[w][0]
             else:
                 senses[w] = lexical_db[w][0]
@@ -99,8 +107,8 @@ if text:
             arg1, arg2 = args.strip(")").split(",")
             G.add_edge(arg1, arg2, label=rel)
         plt.figure(figsize=(5, 3))
-        pos = nx.spring_layout(G)
+        pos = nx.spring_layout(G, seed=42)
         nx.draw(G, pos, with_labels=True, node_size=2500, node_color="lightblue", font_size=10)
-        labels = nx.get_edge_attributes(G, 'label')
+        labels = nx.get_edge_attributes(G, "label")
         nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
         st.pyplot(plt)

@@ -1,18 +1,7 @@
 import streamlit as st
-import nltk
+import re
 import networkx as nx
 import matplotlib.pyplot as plt
-
-# --- Safe Punkt download ---
-try:
-    nltk.data.find("tokenizers/punkt")
-except LookupError:
-    nltk.download("punkt")
-
-try:
-    nltk.data.find("taggers/averaged_perceptron_tagger")
-except LookupError:
-    nltk.download("averaged_perceptron_tagger")
 
 st.set_page_config(page_title="Semantic Disambiguation Engine", layout="wide")
 st.title("🧠 Real-Time Semantic Disambiguation Engine")
@@ -29,9 +18,33 @@ lexical_db = {
     "man": ["human male", "person"]
 }
 
+# --- Simple Tokenizer (no nltk) ---
+def simple_tokenize(sentence):
+    return re.findall(r"\b\w+\b", sentence.lower())
+
+# --- Simple POS Guessing (rule-based) ---
+def simple_pos_tag(tokens):
+    tags = []
+    verbs = {"see", "saw", "walk", "run", "eat", "make", "take", "show"}
+    preps = {"in", "on", "with", "to", "from", "by"}
+    for word in tokens:
+        if word in verbs:
+            tags.append((word, "VB"))
+        elif word in preps:
+            tags.append((word, "IN"))
+        elif word.endswith("ing"):
+            tags.append((word, "VBG"))
+        elif word.endswith("ed"):
+            tags.append((word, "VBD"))
+        elif word.endswith("ly"):
+            tags.append((word, "RB"))
+        else:
+            tags.append((word, "NN"))
+    return tags
+
 # --- Rule-based Lexical Disambiguation ---
 def lexical_disambiguation(sentence):
-    words = nltk.word_tokenize(sentence.lower())
+    words = simple_tokenize(sentence)
     senses = {}
     for w in words:
         if w in lexical_db:
@@ -43,7 +56,7 @@ def lexical_disambiguation(sentence):
                 senses[w] = lexical_db[w][0]
     return senses
 
-# --- Structural Disambiguation Example ---
+# --- Structural Disambiguation ---
 def structural_disambiguation(sentence):
     if "with" in sentence:
         return "⚠️ Possible PP-attachment ambiguity detected ('with' phrase)."
@@ -51,17 +64,17 @@ def structural_disambiguation(sentence):
 
 # --- Semantic Frame Extraction ---
 def semantic_frame(sentence):
-    tokens = nltk.word_tokenize(sentence)
+    tokens = simple_tokenize(sentence)
+    tags = simple_pos_tag(tokens)
     frame = {"Actor": None, "Action": None, "Object": None, "Modifier": None}
-    pos_tags = nltk.pos_tag(tokens)
-    for (word, tag) in pos_tags:
-        if tag.startswith("VB"):
+    for (word, tag) in tags:
+        if tag == "VB" and not frame["Action"]:
             frame["Action"] = word
-        elif tag.startswith("NN") and not frame["Actor"]:
+        elif tag == "NN" and not frame["Actor"]:
             frame["Actor"] = word
-        elif tag.startswith("NN"):
+        elif tag == "NN" and frame["Actor"]:
             frame["Object"] = word
-        elif tag.startswith("IN"):
+        elif tag == "IN":
             frame["Modifier"] = word
     return frame
 
